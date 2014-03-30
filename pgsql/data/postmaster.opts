@@ -1,1 +1,1 @@
-D:/Backup/GOE/GreenOpenERP-7.0-latest-win-x86/pgsql/bin/postgres.exe "-D" "D:/Backup/GOE/GreenOpenERP-7.0-latest-win-x86/pgsql/data"
+D:/Backup/GOE/pgsql/bin/postgres.exe "-D" "D:/Backup/GOE/pgsql/data"
