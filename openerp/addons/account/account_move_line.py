@@ -26,7 +26,7 @@ from operator import itemgetter
 
 from lxml import etree
 
-from openerp import netsvc
+from openerp import workflow
 from openerp.osv import fields, osv, orm
 from openerp.tools.translate import _
 import openerp.addons.decimal_precision as dp
@@ -515,8 +515,7 @@ class account_move_line(osv.osv):
         if context.get('period_id', False):
             return context['period_id']
         account_period_obj = self.pool.get('account.period')
-        ctx = dict(context, account_period_prefer_normal=True)
-        ids = account_period_obj.find(cr, uid, context=ctx)
+        ids = account_period_obj.find(cr, uid, context=context)
         period_id = False
         if ids:
             period_id = ids[0]
@@ -934,11 +933,10 @@ class account_move_line(osv.osv):
             'line_id': map(lambda x: (4, x, False), ids),
             'line_partial_ids': map(lambda x: (3, x, False), ids)
         })
-        wf_service = netsvc.LocalService("workflow")
         # the id of the move.reconcile is written in the move.line (self) by the create method above
         # because of the way the line_id are defined: (4, x, False)
         for id in ids:
-            wf_service.trg_trigger(uid, 'account.move.line', id, cr)
+            workflow.trg_trigger(uid, 'account.move.line', id, cr)
 
         if lines and lines[0]:
             partner_id = lines[0].partner_id and lines[0].partner_id.id or False
@@ -982,8 +980,7 @@ class account_move_line(osv.osv):
         if context is None:
             context = {}
         period_pool = self.pool.get('account.period')
-        ctx = dict(context, account_period_prefer_normal=True)
-        pids = period_pool.find(cr, user, date, context=ctx)
+        pids = period_pool.find(cr, user, date, context=context)
         if pids:
             res.update({
                 'period_id':pids[0]
@@ -1291,6 +1288,5 @@ class account_move_line(osv.osv):
                 bool(journal.currency),bool(journal.analytic_journal_id)))
         return result
 
-account_move_line()
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

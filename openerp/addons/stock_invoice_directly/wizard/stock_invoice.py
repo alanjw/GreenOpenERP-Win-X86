@@ -21,35 +21,29 @@
 
 from openerp.osv import fields, osv
 
-class invoice_directly(osv.osv_memory):
-    _inherit = 'stock.partial.picking'
+# class invoice_directly(osv.osv_memory):
+#     _inherit = 'stock.partial.picking'
+# 
+#     def do_transfer(self, cr, uid, ids, context=None):
+#         """Launch Create invoice wizard if invoice state is To be Invoiced,
+#            after processing the partial picking.
+#         """
+#         if context is None: context = {}
+#         result = super(invoice_directly, self).do_transfer(cr, uid, ids, context)
+#         partial = self.browse(cr, uid, ids[0], context)
+#         context.update(active_model='stock.picking',
+#                        active_ids=[partial.picking_id.id])
+#         if partial.picking_id.invoice_state == '2binvoiced':
+#             return {
+#                 'name': 'Create Invoice',
+#                 'view_type': 'form',
+#                 'view_mode': 'form',
+#                 'res_model': 'stock.invoice.onshipping',
+#                 'type': 'ir.actions.act_window',
+#                 'target': 'new',
+#                 'context': context
+#             }
+#         return {'type': 'ir.actions.act_window_close'}
 
-    def do_partial(self, cr, uid, ids, context=None):
-        """Launch Create invoice wizard if invoice state is To be Invoiced,
-           after processing the partial picking.
-        """
-        if context is None: context = {}
-        result = super(invoice_directly, self).do_partial(cr, uid, ids, context)
-        partial = self.browse(cr, uid, ids[0], context)
-        if partial.picking_id.state != 'done' and partial.picking_id.backorder_id:
-            # delivery is not finished, opening invoice on backorder
-            picking = partial.picking_id.backorder_id
-        else:
-            picking = partial.picking_id
-        context.update(active_model='stock.picking',
-                       active_ids=[picking.id])
-        if picking.invoice_state == '2binvoiced':
-            return {
-                'name': 'Create Invoice',
-                'view_type': 'form',
-                'view_mode': 'form',
-                'res_model': 'stock.invoice.onshipping',
-                'type': 'ir.actions.act_window',
-                'target': 'new',
-                'context': context
-            }
-        return {'type': 'ir.actions.act_window_close'}
-
-invoice_directly()
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

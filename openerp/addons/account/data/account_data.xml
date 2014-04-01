@@ -3,8 +3,14 @@
     <data noupdate="1">
 
         <record id="analytic_journal_sale" model="account.analytic.journal">
+            <field name="code">SAL</field>
             <field name="name">Sales</field>
             <field name="type">sale</field>
+        </record>
+        <record id="exp" model="account.analytic.journal">
+            <field name="code">PUR</field>
+            <field name="name">Purchases</field>
+            <field name="type">purchase</field>
         </record>
 
         <!--
@@ -51,7 +57,7 @@
             <field eval="0" name="days2"/>
             <field eval="account_payment_term_net" name="payment_id"/>
         </record>
-        
+
         <!--
         Account Journal Sequences
         -->

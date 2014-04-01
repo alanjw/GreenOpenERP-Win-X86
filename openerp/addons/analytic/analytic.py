@@ -33,9 +33,9 @@ class account_analytic_account(osv.osv):
     _description = 'Analytic Account'
     _track = {
         'state': {
-            'analytic.mt_account_pending': lambda self, cr, uid, obj, ctx=None:  obj['state'] == 'pending',
-            'analytic.mt_account_closed': lambda self, cr, uid, obj, ctx=None: obj['state'] == 'close',
-            'analytic.mt_account_opened': lambda self, cr, uid, obj, ctx=None: obj['state'] == 'open',
+            'analytic.mt_account_pending': lambda self, cr, uid, obj, ctx=None: obj.state == 'pending',
+            'analytic.mt_account_closed': lambda self, cr, uid, obj, ctx=None: obj.state == 'close',
+            'analytic.mt_account_opened': lambda self, cr, uid, obj, ctx=None: obj.state == 'open',
         },
     }
 
@@ -253,7 +253,7 @@ class account_analytic_account(osv.osv):
     def check_recursion(self, cr, uid, ids, context=None, parent=None):
         return super(account_analytic_account, self)._check_recursion(cr, uid, ids, context=context, parent=parent)
 
-    _order = 'name asc'
+    _order = 'code, name asc'
     _constraints = [
         (check_recursion, 'Error! You cannot create recursive analytic accounts.', ['parent_id']),
     ]
