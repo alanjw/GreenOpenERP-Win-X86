@@ -140,7 +140,6 @@ from openerp.osv import fields
 from openerp.osv.orm import MAGIC_COLUMNS
 import openerp.tools as tools
 
-#.apidoc title: Domain Expressions
 
 # Domain operators.
 NOT_OPERATOR = '!'
@@ -759,7 +758,7 @@ class expression(object):
             field_path = left.split('.', 1)
             field = working_model._columns.get(field_path[0])
             if field and field._obj:
-                relational_model = working_model.pool.get(field._obj)
+                relational_model = working_model.pool[field._obj]
             else:
                 relational_model = None
 
@@ -788,7 +787,7 @@ class expression(object):
                 # comments about inherits'd fields
                 #  { 'field_name': ('parent_model', 'm2o_field_to_reach_parent',
                 #                    field_column_obj, origina_parent_model), ... }
-                next_model = working_model.pool.get(working_model._inherit_fields[field_path[0]][0])
+                next_model = working_model.pool[working_model._inherit_fields[field_path[0]][0]]
                 leaf.add_join_context(next_model, working_model._inherits[next_model._name], 'id', working_model._inherits[next_model._name])
                 push(leaf)
 
@@ -1013,14 +1012,13 @@ class expression(object):
 
             else:
                 if field._type == 'datetime' and right and len(right) == 10:
-                    if operator in ('>', '>='):
+                    if operator in ('>', '>=', '='):
                         right += ' 00:00:00'
                     elif operator in ('<', '<='):
                         right += ' 23:59:59'
                     push(create_substitution_leaf(leaf, (left, operator, right), working_model))
 
                 elif field.translate and right:
-                    field = left
                     need_wildcard = operator in ('like', 'ilike', 'not like', 'not ilike')
                     sql_operator = {'=like': 'like', '=ilike': 'ilike'}.get(operator, operator)
                     if need_wildcard:
@@ -1032,38 +1030,33 @@ class expression(object):
                         sql_operator = sql_operator[4:] if sql_operator[:3] == 'not' else '='
                         inselect_operator = 'not inselect'
 
+                    subselect = '( SELECT res_id'          \
+                             '    FROM ir_translation'  \
+                             '   WHERE name = %s'       \
+                             '     AND lang = %s'       \
+                             '     AND type = %s'
+                    instr = ' %s'
+                    #Covering in,not in operators with operands (%s,%s) ,etc.
                     if sql_operator == 'in':
-                        right = tuple(right)
-
-                    if self.has_unaccent and sql_operator.endswith('like'):
-                        trans_left = 'unaccent(value)'
-                        left = 'unaccent("%s")' % (left,)
-                        instr = 'unaccent(%s)'
+                        instr = ','.join(['%s'] * len(right))
+                        subselect += '     AND value ' + sql_operator + ' ' + " (" + instr + ")"   \
+                             ') UNION ('                \
+                             '  SELECT id'              \
+                             '    FROM "' + working_model._table + '"'       \
+                             '   WHERE "' + left + '" ' + sql_operator + ' ' + " (" + instr + "))"
                     else:
-                        trans_left = 'value'
-                        left = '"%s"' % (left,)
-                        instr = '%s'
+                        subselect += '     AND value ' + sql_operator + instr +   \
+                             ') UNION ('                \
+                             '  SELECT id'              \
+                             '    FROM "' + working_model._table + '"'       \
+                             '   WHERE "' + left + '" ' + sql_operator + instr + ")"
 
-                    subselect = """(SELECT res_id
-                                      FROM ir_translation
-                                     WHERE name = %s
-                                       AND lang = %s
-                                       AND type = %s
-                                       AND {trans_left} {operator} {right}
-                                   ) UNION (
-                                    SELECT id
-                                      FROM "{table}"
-                                     WHERE {left} {operator} {right}
-                                   )
-                                """.format(trans_left=trans_left, operator=sql_operator,
-                                           right=instr, table=working_model._table, left=left)
-
-                    params = [working_model._name + ',' + field,
+                    params = [working_model._name + ',' + left,
                               context.get('lang', False) or 'en_US',
                               'model',
                               right,
                               right,
-                              ]
+                             ]
                     push(create_substitution_leaf(leaf, ('id', inselect_operator, (subselect, params)), working_model))
 
                 else:
@@ -1131,7 +1124,9 @@ class expression(object):
                     if left == 'id':
                         instr = ','.join(['%s'] * len(params))
                     else:
-                        instr = ','.join([model._columns[left]._symbol_set[0]] * len(params))
+                        ss = model._columns[left]._symbol_set
+                        instr = ','.join([ss[0]] * len(params))
+                        params = map(ss[1], params)
                     query = '(%s."%s" %s (%s))' % (table_alias, left, operator, instr)
                 else:
                     # The case for (left, 'in', []) or (left, 'not in', []).
@@ -1182,7 +1177,7 @@ class expression(object):
 
             if left in model._columns:
                 format = need_wildcard and '%s' or model._columns[left]._symbol_set[0]
-                if self.has_unaccent and sql_operator.endswith('like'):
+                if self.has_unaccent and sql_operator in ('ilike', 'not ilike'):
                     query = '(unaccent(%s."%s") %s unaccent(%s))' % (table_alias, left, sql_operator, format)
                 else:
                     query = '(%s."%s" %s %s)' % (table_alias, left, sql_operator, format)

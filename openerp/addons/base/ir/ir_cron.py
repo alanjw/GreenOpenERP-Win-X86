@@ -124,21 +124,30 @@ class ir_cron(osv.osv):
         :param args: arguments of the method (without the usual self, cr, uid).
         :param job_id: job id.
         """
-        args = str2tuple(args)
-        model = self.pool.get(model_name)
-        if model and hasattr(model, method_name):
-            method = getattr(model, method_name)
-            try:
-                log_depth = (None if _logger.isEnabledFor(logging.DEBUG) else 1)
-                netsvc.log(_logger, logging.DEBUG, 'cron.object.execute', (cr.dbname,uid,'*',model_name,method_name)+tuple(args), depth=log_depth)
-                if _logger.isEnabledFor(logging.DEBUG):
-                    start_time = time.time()
-                method(cr, uid, *args)
-                if _logger.isEnabledFor(logging.DEBUG):
-                    end_time = time.time()
-                    _logger.debug('%.3fs (%s, %s)' % (end_time - start_time, model_name, method_name))
-            except Exception, e:
-                self._handle_callback_exception(cr, uid, model_name, method_name, args, job_id, e)
+        try:
+            args = str2tuple(args)
+            openerp.modules.registry.RegistryManager.check_registry_signaling(cr.dbname)
+            registry = openerp.registry(cr.dbname)
+            if model_name in registry:
+                model = registry[model_name]
+                if hasattr(model, method_name):
+                    log_depth = (None if _logger.isEnabledFor(logging.DEBUG) else 1)
+                    netsvc.log(_logger, logging.DEBUG, 'cron.object.execute', (cr.dbname,uid,'*',model_name,method_name)+tuple(args), depth=log_depth)
+                    if _logger.isEnabledFor(logging.DEBUG):
+                        start_time = time.time()
+                    getattr(model, method_name)(cr, uid, *args)
+                    if _logger.isEnabledFor(logging.DEBUG):
+                        end_time = time.time()
+                        _logger.debug('%.3fs (%s, %s)' % (end_time - start_time, model_name, method_name))
+                    openerp.modules.registry.RegistryManager.signal_caches_change(cr.dbname)
+                else:
+                    msg = "Method `%s.%s` does not exist." % (model_name, method_name)
+                    _logger.warning(msg)
+            else:
+                msg = "Model `%s` does not exist." % model_name
+                _logger.warning(msg)
+        except Exception, e:
+            self._handle_callback_exception(cr, uid, model_name, method_name, args, job_id, e)
 
     def _process_job(self, job_cr, job, cron_cr):
         """ Run a given job taking care of the repetition.
@@ -216,20 +225,27 @@ class ir_cron(osv.osv):
             lock_cr = db.cursor()
             try:
                 # Try to grab an exclusive lock on the job row from within the task transaction
+                # Restrict to the same conditions as for the search since the job may have already
+                # been run by an other thread when cron is running in multi thread
                 lock_cr.execute("""SELECT *
                                    FROM ir_cron
-                                   WHERE id=%s
+                                   WHERE numbercall != 0
+                                      AND active
+                                      AND nextcall <= (now() at time zone 'UTC')
+                                      AND id=%s
                                    FOR UPDATE NOWAIT""",
                                (job['id'],), log_exceptions=False)
 
+                locked_job = lock_cr.fetchone()
+                if not locked_job:
+                    # job was already executed by another parallel process/thread, skipping it.
+                    continue
                 # Got the lock on the job row, run its code
                 _logger.debug('Starting job `%s`.', job['name'])
                 job_cr = db.cursor()
                 try:
-                    openerp.modules.registry.RegistryManager.check_registry_signaling(db_name)
-                    registry = openerp.pooler.get_pool(db_name)
+                    registry = openerp.registry(db_name)
                     registry[cls._name]._process_job(job_cr, job, lock_cr)
-                    openerp.modules.registry.RegistryManager.signal_caches_change(db_name)
                 except Exception:
                     _logger.exception('Unexpected exception while processing cron job %r', job)
                 finally:

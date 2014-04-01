@@ -30,9 +30,9 @@ RELEASE_LEVELS_DISPLAY = {ALPHA: ALPHA,
 # properly comparable using normal operarors, for example:
 #  (6,1,0,'beta',0) < (6,1,0,'candidate',1) < (6,1,0,'candidate',2)
 #  (6,1,0,'candidate',2) < (6,1,0,'final',0) < (6,1,2,'final',0)
-version_info = (7, 0, 0, FINAL, 0)
+version_info = (8, 0, 0, ALPHA, 1)
 version = '.'.join(map(str, version_info[:2])) + RELEASE_LEVELS_DISPLAY[version_info[3]] + str(version_info[4] or '')
-serie = major_version = '.'.join(map(str, version_info[:2]))
+series = serie = major_version = '.'.join(map(str, version_info[:2]))
 
 description = 'OpenERP Server'
 long_desc = '''OpenERP is a complete ERP and CRM. The main features are accounting (analytic
@@ -50,7 +50,7 @@ author = 'OpenERP S.A.'
 author_email = 'info@openerp.com'
 license = 'AGPL-3'
 
-nt_service_name = "openerp-server-" + serie
+nt_service_name = "openerp-server-" + series
 
-version = "GreenOpenERP-7.0-20140401-win-3ee4c95-198d9e4-5680932"
+version = "GreenOpenERP-trunk-wms-20140401-win-b37b1c5-b166bfd-3cc0142"
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
